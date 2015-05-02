@@ -22,18 +22,60 @@
 ## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ##
 
+## Note about python2.
+##
+## This script can currently only be run using python2 interpreter due to
+## its kconfiglib dependency (which is not yet python3 friendly).
+
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
 from argparse import ArgumentParser
 
+
+try:
+    import kconfiglib
+except ImportError:
+    message = """
+Could not find the module 'kconfiglib' in the PYTHONPATH:
+"""
+    message += "\n".join(["  {0}".format(path) for path in sys.path])
+    message += """
+
+Make sure the Kconfiglib directory is in the PYTHONPATH, then relaunch the
+script.
+
+You can get kconfiglib from:
+  https://github.com/ulfalizer/Kconfiglib
+
+
+"""
+    sys.stderr.write(message)
+    raise
+
+
 class Buildroot:
     """ Buildroot configuration object.
     """
+    root_config = "Config.in"
 
     def __init__(self, base_dir):
         self.base_dir = base_dir
+        # The kconfiglib requires an environment variable named "srctree" to
+        # load the configuration, so set it. Also set the environment
+        # variables that are read in by Config.in to some value that is
+        # appropriate for this script.
+        os.environ.update({
+            'srctree': self.base_dir,
+            'BR2_VERSION_FULL': '',
+            'HOSTARCH': '',
+            'BR2_EXTERNAL': 'support/dummy-external',
+            'BR2_DEFCONFIG': '',
+            'SKIP_LEGACY': 'y',
+        })
+        self.config = kconfiglib.Config(os.path.join(self.base_dir,
+                                                     self.root_config))
 
 class Package:
     """ A buildroot package, i.e. something using the package infra.
@@ -47,6 +89,7 @@ class Package:
             print ("Error: no directory %s relative to buildroot directory %s" \
                 % (packagedir, buildroot.base_dir))
             return
+
 
 parser = ArgumentParser(description = """\
 Run some checks on a buildroot package.
