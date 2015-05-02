@@ -1,0 +1,71 @@
+#! /usr/bin/env python
+## checkpackage
+##
+## This script performs various coding style checks on a package.
+## It is not meant to give a final ruling, but helps to find potential
+## problems.
+##
+## Copyright (C) 2015 Arnout Vandecappelle (Essensium/Mind)
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+##
+
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import os
+from argparse import ArgumentParser
+
+class Buildroot:
+    """ Buildroot configuration object.
+    """
+
+    def __init__(self, base_dir):
+        self.base_dir = base_dir
+
+class Package:
+    """ A buildroot package, i.e. something using the package infra.
+    """
+
+    def __init__(self, buildroot, packagedir):
+        self.buildroot = buildroot
+        self.name = os.path.basename(packagedir.rstrip('/'))
+        self.directory = os.path.join(self.buildroot.base_dir, packagedir)
+        if not os.path.isdir(self.directory):
+            print ("Error: no directory %s relative to buildroot directory %s" \
+                % (packagedir, buildroot.base_dir))
+            return
+
+parser = ArgumentParser(description = """\
+Run some checks on a buildroot package.
+
+This performs various coding style checks on a package for buildroot. It does
+not pass final judgement, but it helps to find potential problems.
+
+At the moment, only target packages under the package/ directory are supported.
+""")
+
+parser.add_argument("packages", metavar='package', nargs="+",
+    help="""Package to check, given as a directory relative to the buildroot
+        directory. E.g. package/x11r7/xfont_encodings""")
+
+parser.add_argument("-d", "--buildroot-dir", default=".",
+    help="Buildroot top-level directory (default: current directory)")
+
+
+args = parser.parse_args()
+
+buildroot = Buildroot(args.buildroot_dir)
+packages = [Package(buildroot, package) for package in args.packages]
