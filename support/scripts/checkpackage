@@ -128,6 +128,20 @@ def checkPackage(package):
                 package.buildroot.base_dir))
         return # This is a fatal error
 
+    package.files = os.listdir(package.directory)
+    # CHECK pkg.mk exists
+    pkg_mk_name = package.name + '.mk'
+    if pkg_mk_name not in package.files:
+        package.error("no %s in package directory." % pkg_mk_name)
+    # CHECK hash file exists
+    pkg_hash_name = package.name + '.hash'
+    if pkg_hash_name not in package.files:
+        package.error("no %s in package directory." % pkg_hash_name,
+            severity = 'Warning')
+    # CHECK Config.in exists
+    if 'Config.in' not in package.files:
+        package.error("no Config.in in package directory.")
+        return # Probably a host package, makes no sense to continue
 
 parser = ArgumentParser(description = """\
 Run some checks on a buildroot package.
