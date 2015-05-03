@@ -54,6 +54,25 @@ You can get kconfiglib from:
     sys.stderr.write(message)
     raise
 
+class Error:
+    """ Represents a failed check.
+    """
+
+    def __init__(self, message, filename=None, line=None, severity='Error'):
+        self.message = message
+        self.filename = filename
+        self.line = line
+        self.severity = severity
+
+    def __str__(self):
+        message = '%s: ' % self.severity
+        if self.filename:
+            message += '%s:' % self.filename
+            if self.line:
+                message += '%d: ' % self.line
+            else:
+                message += ' '
+        return message + self.message
 
 class Buildroot:
     """ Buildroot configuration object.
@@ -85,10 +104,29 @@ class Package:
         self.buildroot = buildroot
         self.name = os.path.basename(packagedir.rstrip('/'))
         self.directory = os.path.join(self.buildroot.base_dir, packagedir)
-        if not os.path.isdir(self.directory):
-            print ("Error: no directory %s relative to buildroot directory %s" \
-                % (packagedir, buildroot.base_dir))
-            return
+        self.errors = []
+
+    def error(self, message, filename=None, line=None, severity='Error'):
+        """Add a failure for this package."""
+        message = '%s: %s' % (self.name, message)
+        self.errors.append(Error(message, filename, line, severity))
+
+def checkPackage(package):
+    """
+    Run all checks on this package.
+
+    This is a flat sequence of all checks that are applied to a package.
+    To make navigation easier, each check should be preceded by a comment
+    that identifies the rule that is checked. This comment should begin
+    with CHECK.
+    """
+
+    # CHECK directory exists
+    if not os.path.isdir(package.directory):
+        package.error("no directory %s relative to buildroot directory %s."
+            % (os.path.relpath(package.directory, package.buildroot.base_dir),
+                package.buildroot.base_dir))
+        return # This is a fatal error
 
 
 parser = ArgumentParser(description = """\
@@ -111,4 +149,9 @@ parser.add_argument("-d", "--buildroot-dir", default=".",
 args = parser.parse_args()
 
 buildroot = Buildroot(args.buildroot_dir)
-packages = [Package(buildroot, package) for package in args.packages]
+
+for packagedir in args.packages:
+    package = Package(buildroot, packagedir)
+    checkPackage(package)
+    for error in package.errors:
+        print (error)
