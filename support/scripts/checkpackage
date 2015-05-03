@@ -157,6 +157,20 @@ def checkPackage(package):
             % pkg_config_name)
         return # This is a fatal error
 
+    # CHECK config symbol prompt - blind is allowed
+    # prompts is a list of (prompt, conditions) tuples
+    if len(package.symbol.prompts) == 0:
+        pkg_config_prompt = None
+    elif len(package.symbol.prompts) > 1:
+        package.error("Kconfig symbol %s has multiple prompts."
+            % pkg_config_name)
+        pkg_config_prompt = None
+    else:
+        pkg_config_prompt = package.symbol.prompts[0][0]
+        if pkg_config_prompt != package.name:
+            package.error("Kconfig prompt is %s instead of %s." %
+                (pkg_config_prompt, package.name), severity = 'Warning')
+
 
 parser = ArgumentParser(description = """\
 Run some checks on a buildroot package.
