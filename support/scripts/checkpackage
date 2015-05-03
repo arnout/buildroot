@@ -121,6 +121,9 @@ def checkPackage(package):
     with CHECK.
     """
 
+    # Convenience: direct access to the Kconfig object
+    config = package.buildroot.config
+
     # CHECK directory exists
     if not os.path.isdir(package.directory):
         package.error("no directory %s relative to buildroot directory %s."
@@ -142,6 +145,18 @@ def checkPackage(package):
     if 'Config.in' not in package.files:
         package.error("no Config.in in package directory.")
         return # Probably a host package, makes no sense to continue
+
+    # CHECK config symbol exists
+    pkg_upper_name = package.name.upper().replace('-', '_').replace('.', '_')
+    pkg_config_name = 'BR2_PACKAGE_' + pkg_upper_name
+    package.symbol = config.get_symbol(pkg_config_name)
+    if not package.symbol or \
+        not package.symbol.is_defined() or \
+        not package.symbol.is_symbol():
+        package.error("Kconfig symbol %s not defined. Is Config.in included?"
+            % pkg_config_name)
+        return # This is a fatal error
+
 
 parser = ArgumentParser(description = """\
 Run some checks on a buildroot package.
