@@ -111,6 +111,12 @@ class Package:
         message = '%s: %s' % (self.name, message)
         self.errors.append(Error(message, filename, line, severity))
 
+
+def packageUpperName(packagename):
+    """Convert PACKAGENAME to uppercase, like pkg-util's UPPERCASE macro"""
+    return packagename.upper().replace('-', '_').replace('.', '_')
+
+
 def checkPackage(package):
     """
     Run all checks on this package.
@@ -147,8 +153,7 @@ def checkPackage(package):
         return # Probably a host package, makes no sense to continue
 
     # CHECK config symbol exists
-    pkg_upper_name = package.name.upper().replace('-', '_').replace('.', '_')
-    pkg_config_name = 'BR2_PACKAGE_' + pkg_upper_name
+    pkg_config_name = 'BR2_PACKAGE_' + packageUpperName(package.name)
     package.symbol = config.get_symbol(pkg_config_name)
     if not package.symbol or \
         not package.symbol.is_defined() or \
@@ -170,6 +175,42 @@ def checkPackage(package):
         if pkg_config_prompt != package.name:
             package.error("Kconfig prompt is %s instead of %s." %
                 (pkg_config_prompt, package.name), severity = 'Warning')
+
+    # CHECK alphabetical ordering
+    if pkg_config_prompt:
+        pkg_parent = package.symbol.get_parent()
+        assert pkg_parent # It simply can't be the top-level menu
+        prev_symbol = None # prompt of the previous symbol
+        for sibling in pkg_parent.get_items():
+            # Check between package and previous symbol
+            if sibling is package.symbol:
+                if prev_symbol and prev_symbol.prompts[0][0] >= pkg_config_prompt:
+                    package.error("Not ordered alphabetically: %s, %s" %
+                        (prev_symbol.prompts[0][0], pkg_config_prompt),
+                        severity = 'Warning')
+                prev_symbol = package.symbol
+                continue
+            # Only consider symbols
+            if not sibling.is_symbol():
+                continue
+            # Only consider symbols with prompts
+            if not sibling.prompts:
+                continue
+            # Find the package that the sibling belongs to based on its directory
+            sibling_location = sibling.get_def_locations()[0][0]
+            sibling_package_name = os.path.basename(os.path.dirname(sibling_location))
+            # Only consider the main package symbol, not sub-entries.
+            if sibling.name != \
+                    'BR2_PACKAGE_' + packageUpperName(sibling_package_name):
+                continue
+
+            if prev_symbol == package.symbol:
+                prompt = sibling.prompts[0][0]
+                if prompt <= pkg_config_prompt:
+                    package.error("Not ordered alphabetically: %s, %s" %
+                        (pkg_config_prompt, prompt), severity = 'Warning')
+                break
+            prev_symbol = sibling
 
 
 parser = ArgumentParser(description = """\
